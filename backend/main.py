@@ -4,7 +4,8 @@ FastAPI application for ChatKit Incident Management Server.
 import os
 import json
 from typing import Dict, Any
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -13,7 +14,10 @@ from auth import extract_user_context, AuthenticationError
 from models import UserContext, Role
 
 # Load environment variables
-load_dotenv()
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+if not find_dotenv():
+    raise FileNotFoundError("Could not find .env file")
 
 # Initialize FastAPI app
 app = FastAPI(
