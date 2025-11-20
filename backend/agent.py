@@ -203,6 +203,7 @@ Remember: You represent {context.display_name} and can only perform actions they
 
         tools = self.get_tool_schemas_for_role(context.role)
 
+
         # Initial completion
         response = self.client.chat.completions.create(
             model=self.model,
@@ -210,6 +211,9 @@ Remember: You represent {context.display_name} and can only perform actions they
             tools=tools if tools else None,
             tool_choice="auto" if tools else None,
         )
+
+        # #debugging
+        # print(f"[DEBUG] Response: {response}")
 
         assistant_message = response.choices[0].message
         messages.append(assistant_message)
