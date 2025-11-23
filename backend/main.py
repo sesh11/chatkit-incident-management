@@ -11,7 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from chatkit_server import IncidentChatKitServer
 from auth import extract_user_context, AuthenticationError
-from models import UserContext, Role
+from models import IncidentUserContext, Role
+from agents import Runner, ItemHelpers
+from agent import create_incident_agent
+import traceback
 
 # Load environment variables
 env_path = Path(__file__).parent.parent / ".env"
@@ -40,7 +43,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is required")
 
-chatkit_server = IncidentChatKitServer(api_key=OPENAI_API_KEY)
+chatkit_server = IncidentChatKitServer()
 
 
 @app.get("/")
@@ -100,7 +103,7 @@ async def get_permissions(role: str):
 @app.post("/api/chat")
 async def chat_endpoint(
     request: Request,
-    user_context: UserContext = Depends(extract_user_context)
+    user_context: IncidentUserContext = Depends(extract_user_context)
 ):
     """
     Main ChatKit endpoint for processing messages.
@@ -171,11 +174,10 @@ async def chat_endpoint(
 @app.post("/api/simple-chat")
 async def simple_chat_endpoint(
     request: Request,
-    user_context: UserContext = Depends(extract_user_context)
+    user_context: IncidentUserContext = Depends(extract_user_context)
 ):
     """
     Simplified chat endpoint for testing without full ChatKit protocol.
-
     Body:
         {
             "message": "user message here"
@@ -191,28 +193,78 @@ async def simple_chat_endpoint(
     try:
         body = await request.json()
         message = body.get("message", "")
+        print(f"[DEBUG] Received message: {message}")  # ← Add logging
+        print(f"[DEBUG] User context: {user_context.user_context.role}")  # ← Add logging
 
         if not message:
             raise HTTPException(status_code=400, detail="Message is required")
 
-        # Process directly through agent
-        from agent import IncidentManagementAgent
+        agent = create_incident_agent(user_context.user_context.role)
+        print(f"[DEBUG] Agent created")  # ← Add logging
+        
+        # runner = Runner(agent=agent, ctx=user_context)
+        # print(f"[DEBUG] Runner created")  # ← Add logging
 
-        agent = IncidentManagementAgent(OPENAI_API_KEY)
-        result = await agent.process_message(message, user_context)
+        response_text = ""
+        tool_calls = []
+
+        result = Runner.run_streamed(agent, input=message, context=user_context)
+
+        async for event in result.stream_events():
+            print(f"[DEBUG] Event: {event.type}")
+
+            if event.type == "raw_response_event":
+                continue
+
+            elif event.type == "run_item_stream_event":
+                print(f"[DEBUG] Run item stream event: {event.item.type}")
+                if event.item.type == "message_output_item":
+                    
+                # Extract text from message output
+                    text = ItemHelpers.text_message_output(event.item)
+                    print(f"[DEBUG] Message output item: {repr(text)}")
+                    response_text += text
+                
+                
+                elif event.item.type == "tool_call_output_item":
+                    print(f"[DEBUG] Tool call output item: {event.item.output}")
+                    tool_calls.append({
+                        "name": getattr(event.item, 'name', 'unknown'),
+                        "output": event.item.output
+                    })
+                
+
+        
+            # elif event.type == "message.completed":
+            #     for content_item in event.message.content:
+            #         if content_item.type == "text":
+            #             response_text += content_item.text
+            #         elif content_item.type == "tool_call":
+            #             tool_calls.append(content_item.tool_call)
+        
+
+        
+        print(f"[DEBUG] Response text: repr({response_text})")
+        print(f"[DEBUG] Tool calls: {tool_calls}")
+        print(f"[DEBUG] Returning response") 
 
         return {
-            "response": result.get("message"),
-            "tool_calls": result.get("tool_calls", []),
-            "context": result.get("context"),
+            "response": response_text,
+            "tool_calls": tool_calls,
+            "context": {
+                "user_id": user_context.user_context.user_id,
+                "role": user_context.user_context.role.value,
+                "permissions": user_context.user_context.permissions
+            },
             "user": {
-                "role": user_context.role.value,
-                "display_name": user_context.display_name,
-                "user_id": user_context.user_id
+                "role": user_context.user_context.role.value,
+                "display_name": user_context.user_context.display_name,
+                "user_id": user_context.user_context.user_id
             }
         }
-
     except Exception as e:
+        print(f"[ERROR] Exception: {str(e)}") 
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Error processing request: {str(e)}"
@@ -221,7 +273,7 @@ async def simple_chat_endpoint(
 
 @app.get("/api/incidents")
 async def list_incidents(
-    user_context: UserContext = Depends(extract_user_context)
+    user_context: IncidentUserContext = Depends(extract_user_context)
 ):
     """
     List all incidents (filtered by role).
@@ -231,13 +283,13 @@ async def list_incidents(
     """
     from store import incident_store
 
-    incidents = incident_store.list_incidents(role=user_context.role)
+    incidents = incident_store.list_incidents(role=user_context.user_context.role)
 
     return {
         "incidents": incidents,
         "user": {
-            "role": user_context.role.value,
-            "display_name": user_context.display_name
+            "role": user_context.user_context.role.value,
+            "display_name": user_context.user_context.display_name
         },
         "count": len(incidents)
     }
@@ -246,7 +298,7 @@ async def list_incidents(
 @app.get("/api/incidents/{incident_id}")
 async def get_incident(
     incident_id: str,
-    user_context: UserContext = Depends(extract_user_context)
+    user_context: IncidentUserContext = Depends(extract_user_context)
 ):
     """
     Get incident details (filtered by role).
@@ -259,7 +311,7 @@ async def get_incident(
     """
     from store import incident_store
 
-    incident = incident_store.get_incident_for_role(incident_id, user_context.role)
+    incident = incident_store.get_incident_for_role(incident_id, user_context.user_context.role)
 
     if not incident:
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
@@ -267,8 +319,8 @@ async def get_incident(
     return {
         "incident": incident,
         "user": {
-            "role": user_context.role.value,
-            "display_name": user_context.display_name
+            "role": user_context.user_context.role.value,
+            "display_name": user_context.user_context.display_name
         }
     }
 

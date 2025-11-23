@@ -3,6 +3,8 @@ import { Send } from 'lucide-react'
 import type { Role } from '../../types'
 import { ROLE_CONFIG } from '../../types'
 
+
+
 interface ChatPanelProps {
   role: Role
   onToolCall?: (toolName: string, result: any) => void
@@ -42,8 +44,8 @@ export const ChatPanel = ({ role, onToolCall }: ChatPanelProps) => {
 
       // Notify about tool calls
       if (data.tool_calls && data.tool_calls.length > 0) {
-        data.tool_calls.forEach((toolCall: any) => {
-          onToolCall?.(toolCall.tool, toolCall.result)
+        data.tool_calls.forEach((toolCall: { name: string; output: any }) => {
+          onToolCall?.(toolCall.name, toolCall.output)
         })
       }
     } catch (error) {

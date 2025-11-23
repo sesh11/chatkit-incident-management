@@ -3,7 +3,8 @@ Identity management and authentication utilities.
 """
 from typing import Optional
 from fastapi import Header, HTTPException
-from models import UserContext, Role, PERMISSIONS
+from models import UserContext, Role, PERMISSIONS, IncidentUserContext
+import functools
 
 
 class AuthenticationError(Exception):
@@ -14,7 +15,7 @@ class AuthenticationError(Exception):
 def extract_user_context(
     x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id")
-) -> UserContext:
+) -> IncidentUserContext:
     """
     Extract user identity from request headers.
 
@@ -23,7 +24,7 @@ def extract_user_context(
         x_user_id: User ID from X-User-Id header
 
     Returns:
-        UserContext with role and permissions
+        IncidentUserContext with user context
 
     Raises:
         HTTPException: If headers are missing or invalid
@@ -44,10 +45,12 @@ def extract_user_context(
 
     permissions = PERMISSIONS.get(role, [])
 
-    return UserContext(
-        user_id=x_user_id,
-        role=role,
-        permissions=permissions
+    return IncidentUserContext(
+        user_context=UserContext(
+            user_id=x_user_id,
+            role=role,
+            permissions=permissions
+        )
     )
 
 
@@ -57,35 +60,40 @@ def requires_permission(permission: str):
 
     Usage:
         @requires_permission("restart_service")
-        def restart_service_tool(context: UserContext, service_name: str):
+        def restart_service_tool(context: IncidentUserContext, service_name: str):
             # Tool implementation
             pass
     """
     def decorator(func):
-        def wrapper(*args, **kwargs):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
             # First argument should be UserContext
-            context = args[0] if args else kwargs.get('context')
+            first_arg = args[0] if args else kwargs.get('ctx')
 
-            if not isinstance(context, UserContext):
+            if hasattr(first_arg, 'context'):
+                incident_context = first_arg.context
+            elif isinstance(first_arg, IncidentUserContext):
+                incident_context = first_arg
+            else:
                 raise AuthenticationError("UserContext not provided to tool function")
 
-            if permission not in context.permissions:
+            if permission not in incident_context.user_context.permissions:
                 raise AuthenticationError(
-                    f"Permission denied: {context.display_name} lacks '{permission}' permission"
+                    f"Permission denied: {incident_context.user_context.display_name} lacks '{permission}' permission"
                 )
 
-            return func(*args, **kwargs)
+            return await func(*args, **kwargs)
 
-        # Preserve function metadata
-        wrapper.__name__ = func.__name__
-        wrapper.__doc__ = func.__doc__
+        # # Preserve function metadata
+        # wrapper.__name__ = func.__name__
+        # wrapper.__doc__ = func.__doc__
         wrapper._requires_permission = permission
 
         return wrapper
     return decorator
 
 
-def check_permission(context: UserContext, permission: str) -> bool:
+def check_permission(context: IncidentUserContext, permission: str) -> bool:
     """
     Check if user has a specific permission.
 
@@ -96,17 +104,16 @@ def check_permission(context: UserContext, permission: str) -> bool:
     Returns:
         True if user has permission, False otherwise
     """
-    return permission in context.permissions
+    return permission in context.user_context.permissions
 
-
-def get_user_permissions(role: Role) -> list[str]:
+def get_user_permissions(context: IncidentUserContext) -> list[str]:
     """
-    Get all permissions for a role.
+    Get all permissions for a user.
 
     Args:
-        role: User role
+        context: IncidentUserContext
 
     Returns:
         List of permission strings
     """
-    return PERMISSIONS.get(role, [])
+    return PERMISSIONS.get(context.user_context.role, [])
