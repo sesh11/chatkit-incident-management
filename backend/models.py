@@ -155,3 +155,8 @@ PERMISSIONS = {
         "view_customer_slas",
     ],
 }
+
+@dataclass
+class IncidentUserContext:
+    user_context: UserContext
+
