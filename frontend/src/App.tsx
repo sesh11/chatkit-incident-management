@@ -1,11 +1,12 @@
+import { Routes, Route } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { IncidentProvider } from './context/IncidentContext'
 import { useActivityFeed } from './hooks/useActivityFeed'
-import { DashboardLayout } from './components/layout/DashboardLayout'
-import { ITConsole } from './components/panels/ITConsole'
-import { OpsDashboard } from './components/panels/OpsDashboard'
-import { FinancePortal } from './components/panels/FinancePortal'
-import { CSMPortal } from './components/panels/CSMPortal'
+import { MainPage } from './pages/MainPage'
+import { ITPage } from './pages/ITPage'
+import { FinancePage } from './pages/FinancePage'
+import { CustomerServicePage } from './pages/CustomerServicePage'
+import { OperationsPage } from './pages/OperationsPage'
 import { ROLE_CONFIG } from './types'
 
 function App() {
@@ -63,12 +64,63 @@ function App() {
   return (
     <IncidentProvider>
       <Toaster position="top-right" richColors closeButton />
-      <DashboardLayout activities={activities} onTrigger={handleIncidentTrigger} onReset={handleReset}>
-        <ITConsole onToolCall={handleToolCall('IT')} />
-        <OpsDashboard onToolCall={handleToolCall('OPS')} />
-        <FinancePortal onToolCall={handleToolCall('FINANCE')} />
-        <CSMPortal onToolCall={handleToolCall('CSM')} />
-      </DashboardLayout>
+      <Routes>
+        {/* Main landing page */}
+        <Route
+          path="/"
+          element={
+            <MainPage
+              activities={activities}
+              onTrigger={handleIncidentTrigger}
+              onReset={handleReset}
+            />
+          }
+        />
+
+        {/* IT Console Page */}
+        <Route
+          path="/it"
+          element={
+            <ITPage
+              activities={activities}
+              onToolCall={handleToolCall('IT')}
+            />
+          }
+        />
+
+        {/* Finance Portal Page */}
+        <Route
+          path="/finance"
+          element={
+            <FinancePage
+              activities={activities}
+              onToolCall={handleToolCall('FINANCE')}
+            />
+          }
+        />
+
+        {/* Customer Service Page */}
+        <Route
+          path="/customer-service"
+          element={
+            <CustomerServicePage
+              activities={activities}
+              onToolCall={handleToolCall('CSM')}
+            />
+          }
+        />
+
+        {/* Operations Dashboard Page */}
+        <Route
+          path="/operations"
+          element={
+            <OperationsPage
+              activities={activities}
+              onToolCall={handleToolCall('OPS')}
+            />
+          }
+        />
+      </Routes>
     </IncidentProvider>
   )
 }

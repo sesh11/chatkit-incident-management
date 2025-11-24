@@ -3,7 +3,19 @@ ChatKit Server implementation with identity propagation.
 """
 import json
 from typing import AsyncIterator, Dict, Any
+from datetime import datetime
 from chatkit.server import ChatKitServer, ThreadStreamEvent
+from chatkit.types import (
+    ThreadItemAddedEvent,
+    ThreadItemUpdated,
+    ThreadItemDoneEvent,
+    AssistantMessageItem,
+    AssistantMessageContent,
+    AssistantMessageContentPartAdded,
+    AssistantMessageContentPartTextDelta,
+    ErrorEvent,
+)
+from chatkit.store import default_generate_id
 from agent import create_incident_agent
 from models import IncidentUserContext
 from agents import Runner, ItemHelpers
@@ -24,6 +36,7 @@ class IncidentChatKitServer(ChatKitServer):
             api_key: OpenAI API key
         """
         super().__init__(store=chat_store)
+        self.accumulated_text = ""  # Track accumulated text for final message
 
     async def respond(
         self,
@@ -32,7 +45,7 @@ class IncidentChatKitServer(ChatKitServer):
         context: Dict[str, Any]
     ) -> AsyncIterator[ThreadStreamEvent]:
         """
-        Respond to user input with identity-aware processing.
+        Respond to user input with identity-aware processing and streaming.
 
         This is the core method called by ChatKit when a user sends a message.
         It receives the thread, user input, and context (which includes user identity).
@@ -50,14 +63,14 @@ class IncidentChatKitServer(ChatKitServer):
 
         if not incident_user_context:
             # Yield error event if no user context
-            yield {
-                "type": "error",
-                "error": {
-                    "message": "Authentication required: No user context provided"
-                }
-            }
+            yield ErrorEvent(
+                code="authentication_required",
+                message="No user context provided",
+                allow_retry=False
+            )
             return
 
+        # Extract user message text
         user_message = ""
         if hasattr(input, 'content'):
             if isinstance(input.content, list):
@@ -68,122 +81,82 @@ class IncidentChatKitServer(ChatKitServer):
                 user_message = input.content
         else:
             user_message = str(input)
-        try:
-            agent = create_incident_agent(incident_user_context.user_context.role)
-            # runner = Runner(agent=agent, ctx=incident_user_context)
 
+        try:
+            # Create agent
+            agent = create_incident_agent(incident_user_context.user_context.role)
+
+            # Create assistant message item
+            item_id = default_generate_id("message")
+            self.accumulated_text = ""  # Reset accumulated text
+
+            assistant_item = AssistantMessageItem(
+                id=item_id,
+                thread_id=thread.id,
+                created_at=datetime.now(),
+                content=[]  # Start empty, will be populated via deltas
+            )
+
+            # Yield ThreadItemAddedEvent to add the item to the thread
+            yield ThreadItemAddedEvent(item=assistant_item)
+
+            # Stream agent responses and transform to ChatKit events
             result = Runner.run_streamed(agent, input=user_message, context=incident_user_context)
             async for event in result.stream_events():
-                chatkit_event = self._transform_event(event, incident_user_context)
+                chatkit_event = self._transform_event(event, item_id)
                 if chatkit_event:
                     yield chatkit_event
-            async for event in Runner.run_streamed(agent, input=user_message, context=incident_user_context):
-                chatkit_event = self._transform_event(event, incident_user_context)
-                if chatkit_event:
-                    yield chatkit_event
+
+            # Yield ThreadItemDoneEvent with complete message
+            final_item = AssistantMessageItem(
+                id=item_id,
+                thread_id=thread.id,
+                created_at=assistant_item.created_at,
+                content=[AssistantMessageContent(text=self.accumulated_text)]
+            )
+            yield ThreadItemDoneEvent(item=final_item)
+
         except Exception as e:
             # Yield error event
-            yield {
-                "type": "error",
-                "error": {
-                    "message": f"Error processing request: {str(e)}",
-                    "code": "processing_error"
-                }
-            }
+            import traceback
+            traceback.print_exc()
+            yield ErrorEvent(
+                code="processing_error",
+                message=f"Error processing request: {str(e)}",
+                allow_retry=True
+            )
 
-    def _transform_event(self, agent_event: Dict[str, Any], user_context: IncidentUserContext) -> Dict[str, Any]:
-        """Transform Agents SDK events to ChatKit events."""
+    def _transform_event(self, agent_event: Dict[str, Any], item_id: str) -> ThreadStreamEvent | None:
+        """Transform Agents SDK events to ChatKit ThreadStreamEvent objects."""
 
         if agent_event.type == "run_item_stream_event":
 
-          if agent_event.item.type == "tool_call_item":
-              return {
-                  "type": "tool.call.started",
-                  "tool_call": {
-                      "id": getattr(agent_event.item, 'id', ''),
-                      "name": getattr(agent_event.item, 'name', ''),
-                      "arguments": getattr(agent_event.item, 'arguments', {})
-                  }
-              }
+            # Skip tool calls for now - can be added later
+            if agent_event.item.type == "tool_call_item":
+                return None
 
-          elif agent_event.item.type == "tool_call_output_item":
-              return {
-                  "type": "tool.call.completed",
-                  "tool_call": {
-                      "id": getattr(agent_event.item, 'id', ''),
-                      "name": getattr(agent_event.item, 'name', ''),
-                      "result": agent_event.item.output
-                  }
-              }
+            elif agent_event.item.type == "tool_call_output_item":
+                return None
 
-          elif agent_event.item.type == "message_output_item":
-              text = ItemHelpers.text_message_output(agent_event.item)
+            # Stream assistant message text as deltas
+            elif agent_event.item.type == "message_output_item":
+                text = ItemHelpers.text_message_output(agent_event.item)
 
-              return {
-                  "type": "thread.message.delta",
-                  "delta": {
-                      "role": "assistant",
-                      "content": [{"type": "text", "text": text}]
-                  }
-              }
+                # Accumulate text for final message
+                self.accumulated_text += text
 
-          elif agent_event.type == "raw_response_event":
-          # Skip raw events for ChatKit
+                # Return ThreadItemUpdated with text delta
+                return ThreadItemUpdated(
+                    item_id=item_id,
+                    update=AssistantMessageContentPartTextDelta(
+                        content_index=0,
+                        delta=text
+                    )
+                )
+
+        elif agent_event.type == "raw_response_event":
+            # Skip raw events for ChatKit
             return None
 
-      # Unknown event - skip
+        # Unknown event - skip
         return None
-
-        
-        # """
-        # Transform an OpenAI event into a ChatKit event.
-        # """
-        # event_type = agent_event.get('type')
-        # if event_type == "tool.call.started":
-        #     return {
-        #         "type": "tool.call.started",
-        #         "tool_call": {
-        #             "id": agent_event.get("tool_call", {}).get("id"),
-        #             "name": agent_event.get("tool_call", {}).get("name"),
-        #             "arguments": agent_event.get("tool_call", {}).get("arguments")
-        #         }
-        #     }
-
-        # elif event_type == "tool.call.completed":
-        #     return {
-        #         "type": "tool.call.completed",
-        #         "tool_call": {
-        #             "id": agent_event.get("tool_call", {}).get("id"),
-        #             "name": agent_event.get("tool_call", {}).get("name"),
-        #             "result": agent_event.get("tool_call", {}).get("result")
-        #         }
-        #     }
-        # elif event_type == "message.delta":
-        #     return {
-        #         "type": "thread.message.delta",
-        #         "delta": {
-        #             "role": "assistant",
-        #             "content": agent_event.get("delta", {}).get("content", [])
-        #         }
-        #     }
-        
-        # elif event_type == "message.completed":
-        #     return {
-        #         "type": "thread.message.completed",
-        #         "message": {
-        #             "role": "assistant",
-        #             "content": agent_event.get("message", {}).get("content", []),
-        #             "metadata": {
-        #                 "user_role": user_context.user_context.role.value,
-        #                 "user_id": user_context.user_context.user_id,
-        #             }
-        #         }
-        #     }
-
-        # elif event_type == "error":
-        #     return {
-        #         "type": "error",
-        #         "error": agent_event.get("error", {})
-        #         }
-
-        # return None
