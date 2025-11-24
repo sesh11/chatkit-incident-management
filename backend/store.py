@@ -2,9 +2,10 @@
 Data storage for incidents, threads, and messages.
 """
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from chatkit.server import Store, Thread, ThreadItem
 from chatkit.store import Attachment
+from chatkit.types import Page, ThreadMetadata
 from models import Incident, IncidentPriority, IncidentStatus, Role
 
 
@@ -106,19 +107,24 @@ class SimpleStore(Store):
     """
 
     def __init__(self):
-        self.threads: Dict[str, Thread] = {}
+        self.threads: Dict[str, ThreadMetadata] = {}
         self.thread_items: Dict[str, List[ThreadItem]] = {}
         self.attachments: Dict[str, Attachment] = {}
 
     async def create_thread(self) -> Thread:
         """Create a new thread."""
         thread_id = f"thread_{len(self.threads) + 1}"
-        thread = Thread(id=thread_id, metadata={})
-        self.threads[thread_id] = thread
+        thread_metadata = ThreadMetadata(
+            id=thread_id,
+            created_at=datetime.now(),
+            metadata={}
+        )
+        self.threads[thread_id] = thread_metadata
         self.thread_items[thread_id] = []
-        return thread
+        # Return Thread with empty items for API compatibility
+        return Thread(**thread_metadata.model_dump(), items=Page())
 
-    async def get_thread(self, thread_id: str) -> Optional[Thread]:
+    async def get_thread(self, thread_id: str) -> Optional[ThreadMetadata]:
         """Get thread by ID."""
         return self.threads.get(thread_id)
 
@@ -128,23 +134,21 @@ class SimpleStore(Store):
         if not thread:
             raise ValueError(f"Thread {thread_id} not found")
         thread.metadata.update(metadata)
-        return thread
+        # Return Thread with empty items for API compatibility
+        return Thread(**thread.model_dump(), items=Page())
 
-    async def delete_thread(self, thread_id: str) -> bool:
+    async def delete_thread(self, thread_id: str, context: Any) -> None:
         """Delete a thread."""
         if thread_id in self.threads:
             del self.threads[thread_id]
             if thread_id in self.thread_items:
                 del self.thread_items[thread_id]
-            return True
-        return False
 
-    async def add_thread_item(self, thread_id: str, item: ThreadItem) -> ThreadItem:
+    async def add_thread_item(self, thread_id: str, item: ThreadItem, context: Any) -> None:
         """Add an item to a thread."""
         if thread_id not in self.thread_items:
             self.thread_items[thread_id] = []
         self.thread_items[thread_id].append(item)
-        return item
 
     async def get_thread_items(self, thread_id: str) -> List[ThreadItem]:
         """Get all items in a thread."""
@@ -160,62 +164,108 @@ class SimpleStore(Store):
         return self.attachments.get(attachment_id)
 
     # Required abstract methods from Store interface
-    async def save_thread(self, thread: Thread) -> Thread:
+    async def save_thread(self, thread: ThreadMetadata, context: Any) -> None:
         """Save a thread (create or update)."""
+        # Store ThreadMetadata directly
         self.threads[thread.id] = thread
         if thread.id not in self.thread_items:
             self.thread_items[thread.id] = []
+
+    async def load_thread(self, thread_id: str, context: Any) -> ThreadMetadata:
+        """Load a thread by ID."""
+        thread = self.threads.get(thread_id)
+        if not thread:
+            from chatkit.store import NotFoundError
+            raise NotFoundError(f"Thread {thread_id} not found")
         return thread
 
-    async def load_thread(self, thread_id: str) -> Optional[Thread]:
-        """Load a thread by ID."""
-        return await self.get_thread(thread_id)
+    async def load_threads(self, limit: int, after: str | None, order: str, context: Any) -> Page[ThreadMetadata]:
+        """Load all threads with cursor-based pagination."""
+        # Get all threads (already ThreadMetadata)
+        threads = list(self.threads.values())
 
-    async def load_threads(self) -> List[Thread]:
-        """Load all threads."""
-        return list(self.threads.values())
+        # Sort by thread ID (most recent threads have higher IDs)
+        threads.sort(key=lambda t: t.id, reverse=(order == "desc"))
 
-    async def save_item(self, thread_id: str, item: ThreadItem) -> ThreadItem:
+        # Apply cursor filter if 'after' is provided
+        if after:
+            if order == "desc":
+                threads = [t for t in threads if t.id < after]
+            else:
+                threads = [t for t in threads if t.id > after]
+
+        # Take limit + 1 to check if there are more pages
+        result_threads = threads[:limit]
+        has_more = len(threads) > limit
+
+        # Determine next cursor
+        next_cursor = result_threads[-1].id if has_more and result_threads else None
+
+        return Page(data=result_threads, has_more=has_more, after=next_cursor)
+
+    async def save_item(self, thread_id: str, item: ThreadItem, context: Any) -> None:
         """Save a thread item."""
-        return await self.add_thread_item(thread_id, item)
+        await self.add_thread_item(thread_id, item, context)
 
-    async def load_item(self, thread_id: str, item_id: str) -> Optional[ThreadItem]:
+    async def load_item(self, thread_id: str, item_id: str, context: Any) -> ThreadItem:
         """Load a specific thread item by ID."""
         items = await self.get_thread_items(thread_id)
         for item in items:
             if item.id == item_id:
                 return item
-        return None
+        from chatkit.store import NotFoundError
+        raise NotFoundError(f"Thread item {item_id} not found in thread {thread_id}")
 
-    async def load_thread_items(self, thread_id: str) -> List[ThreadItem]:
-        """Load all items for a thread."""
-        return await self.get_thread_items(thread_id)
+    async def load_thread_items(self, thread_id: str, after: str | None, limit: int, order: str, context: Any) -> Page[ThreadItem]:
+        """Load thread items with cursor-based pagination."""
+        # Get all items for the thread
+        items = await self.get_thread_items(thread_id)
 
-    async def delete_thread_item(self, thread_id: str, item_id: str) -> bool:
+        # Sort by item ID
+        items_sorted = sorted(items, key=lambda item: item.id, reverse=(order == "desc"))
+
+        # Apply cursor filter if 'after' is provided
+        if after:
+            if order == "desc":
+                items_sorted = [item for item in items_sorted if item.id < after]
+            else:
+                items_sorted = [item for item in items_sorted if item.id > after]
+
+        # Take limit + 1 to check if there are more pages
+        result_items = items_sorted[:limit]
+        has_more = len(items_sorted) > limit
+
+        # Determine next cursor
+        next_cursor = result_items[-1].id if has_more and result_items else None
+
+        return Page(data=result_items, has_more=has_more, after=next_cursor)
+
+    async def delete_thread_item(self, thread_id: str, item_id: str, context: Any) -> None:
         """Delete a thread item."""
         if thread_id not in self.thread_items:
-            return False
+            return
         items = self.thread_items[thread_id]
         for i, item in enumerate(items):
             if item.id == item_id:
                 del items[i]
-                return True
-        return False
+                return
 
-    async def save_attachment(self, attachment: Attachment) -> Attachment:
+    async def save_attachment(self, attachment: Attachment, context: Any) -> None:
         """Save an attachment."""
-        return await self.create_attachment(attachment)
+        await self.create_attachment(attachment)
 
-    async def load_attachment(self, attachment_id: str) -> Optional[Attachment]:
+    async def load_attachment(self, attachment_id: str, context: Any) -> Attachment:
         """Load an attachment by ID."""
-        return await self.get_attachment(attachment_id)
+        attachment = await self.get_attachment(attachment_id)
+        if not attachment:
+            from chatkit.store import NotFoundError
+            raise NotFoundError(f"Attachment {attachment_id} not found")
+        return attachment
 
-    async def delete_attachment(self, attachment_id: str) -> bool:
+    async def delete_attachment(self, attachment_id: str, context: Any) -> None:
         """Delete an attachment."""
         if attachment_id in self.attachments:
             del self.attachments[attachment_id]
-            return True
-        return False
 
 
 # Global store instances

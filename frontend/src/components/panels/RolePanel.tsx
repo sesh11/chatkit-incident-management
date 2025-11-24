@@ -16,7 +16,7 @@ export const RolePanel = ({ role, children }: RolePanelProps) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex flex-col rounded-lg border-8 border-slate-600"
+      className="h-full flex flex-col rounded-lg border-8 border-slate-600"
       style={{
         backgroundColor: `${config.color}20`,
         borderColor: `${config.color}40`,

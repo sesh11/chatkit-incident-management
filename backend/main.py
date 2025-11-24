@@ -8,7 +8,7 @@ from dotenv import load_dotenv, find_dotenv
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from chatkit_server import IncidentChatKitServer
 from auth import extract_user_context, AuthenticationError
 from models import IncidentUserContext, Role
@@ -100,6 +100,9 @@ async def get_permissions(role: str):
     }
 
 
+# Note: /api/chatkit/session endpoint removed - not needed for CustomApiConfig
+# All requests go through /api/chat when using custom backend
+
 @app.post("/api/chat")
 async def chat_endpoint(
     request: Request,
@@ -122,8 +125,13 @@ async def chat_endpoint(
         StreamingResponse (SSE) or JSONResponse
     """
     try:
+        print("[DEBUG] /api/chat endpoint called")
+
         # Get request body
         body = await request.body()
+        print(f"[DEBUG] Request body (first 500 chars): {body[:500]}")
+        print(f"[DEBUG] User role: {user_context.user_context.role}")
+        print(f"[DEBUG] User ID: {user_context.user_context.user_id}")
 
         # Prepare context with user identity
         request_context = {
@@ -131,24 +139,19 @@ async def chat_endpoint(
             "headers": dict(request.headers)
         }
 
+        print("[DEBUG] Calling chatkit_server.process()...")
+
         # Process through ChatKit server
         result = await chatkit_server.process(body, request_context)
 
-        # Check if result is streaming or JSON
-        if hasattr(result, '__aiter__'):
-            # Streaming response (SSE)
-            async def event_generator():
-                """Generate SSE events."""
-                async for event in result:
-                    # Format as SSE
-                    if isinstance(event, dict):
-                        event_data = json.dumps(event)
-                    else:
-                        event_data = str(event)
-                    yield f"data: {event_data}\n\n"
+        print(f"[DEBUG] chatkit_server.process() succeeded, result type: {type(result)}")
 
+        # StreamingResult already yields SSE-formatted bytes - pass through directly
+        if hasattr(result, '__aiter__'):
+            print("[DEBUG] Returning streaming response")
+            # result is already an async generator yielding SSE-formatted bytes
             return StreamingResponse(
-                event_generator(),
+                result,  # Pass through directly, no re-wrapping!
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -157,14 +160,23 @@ async def chat_endpoint(
                 }
             )
         else:
-            # JSON response
-            return JSONResponse(
-                content=result if isinstance(result, dict) else {"result": str(result)}
+            print("[DEBUG] Returning JSON response")
+            # NonStreamingResult.json contains pre-serialized bytes
+            return Response(
+                content=result.json,
+                media_type="application/json"
             )
 
     except AuthenticationError as e:
+        print(f"[ERROR] AuthenticationError: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
+        print(f"[ERROR] Exception in /api/chat: {str(e)}")
+        print(f"[ERROR] Exception type: {type(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Error processing request: {str(e)}"
