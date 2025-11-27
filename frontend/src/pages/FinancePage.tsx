@@ -1,9 +1,11 @@
 import { PageLayout } from '../components/layout/PageLayout'
 import { BackButton } from '../components/ui/BackButton'
-import { RolePanel } from '../components/panels/RolePanel'
 import { ChatKitPanel } from '../components/chat/ChatKitPanel'
+import { MetricTile } from '../components/ui/MetricTile'
 import { useIncident } from '../context/IncidentContext'
+import { DollarSign, AlertTriangle, TrendingUp } from 'lucide-react'
 import type { Activity } from '../types'
+import { ActivityFeed } from '../components/layout/ActivityFeed'
 
 interface FinancePageProps {
   activities: Activity[]
@@ -14,62 +16,64 @@ export const FinancePage = ({ activities, onToolCall }: FinancePageProps) => {
   const { incident } = useIncident()
 
   return (
-    <PageLayout activities={activities}>
-      <div className="h-full p-6">
+    <PageLayout>
+      <div className="h-full bg-white">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">Finance Portal</h2>
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Finance Portal</h2>
           <BackButton />
         </div>
 
         {/* Main Content */}
-        <div className="h-[calc(100vh-150px)]">
-          <RolePanel role="FINANCE">
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Static UI Content */}
-              {incident.isActive && (
-                <div className="p-4 space-y-4 bg-slate-900/30">
-                  {/* Cost Analysis */}
-                  <div>
-                    <h4 className="text-white font-semibold text-sm mb-3">
-                      Incident Cost Analysis
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="bg-slate-800/50 rounded p-3">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-gray-400 text-xs">Current Costs</span>
-                          <span className="text-white font-bold">$25,000.00</span>
-                        </div>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-gray-400 text-xs">SLA Penalty Exposure</span>
-                          <span className="text-red-400 font-bold">$50,000.00</span>
-                        </div>
-                        <div className="border-t border-slate-700 my-2" />
-                        <div className="flex justify-between items-center">
-                          <span className="text-white text-sm font-semibold">Total at Risk</span>
-                          <span className="text-finance font-bold text-lg">$75,000.00</span>
-                        </div>
-                      </div>
+        <div className="h-[calc(100vh-110px)] px-6 pb-6 flex flex-row gap-4 overflow-hidden">
+          {/* LEFT: Metrics Panel */}
+          <div className="flex-1 overflow-y-auto">
+                {incident.isActive && (
+                  <div className="p-3 space-y-2 bg-gray-50 rounded-xl">
+                    {/* Cost Analysis */}
+                    <div>
+                      <h4 className="text-gray-900 font-semibold text-base mb-2">
+                        Incident Cost Analysis
+                      </h4>
+                      <div className="grid grid-cols-1 gap-3">
+                      <MetricTile
+                        icon={<DollarSign size={24} className="text-green-600" />}
+                        value="$25,000"
+                        label="Current Costs"
+                        color="#047857"
+                      />
+                      <MetricTile
+                        icon={<AlertTriangle size={24} className="text-red-600" />}
+                        value="$50,000"
+                        label="SLA Penalty Exposure"
+                        color="#DC2626"
+                      />
+                      <MetricTile
+                        icon={<TrendingUp size={24} className="text-green-600" />}
+                        value="$75,000"
+                        label="Total at Risk"
+                        color="#047857"
+                      />
                     </div>
                   </div>
 
                   {/* Budget Impact */}
                   <div>
-                    <h4 className="text-white font-semibold text-sm mb-3">
+                    <h4 className="text-gray-900 font-semibold text-base mb-2">
                       Budget Impact
                     </h4>
-                    <div className="bg-slate-800/50 rounded p-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-gray-400 text-xs">Incident Budget (YTD)</span>
-                        <span className="text-white text-sm font-semibold">78% used</span>
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-gray-600 text-sm">Incident Budget (YTD)</span>
+                        <span className="text-gray-900 font-bold">78% used</span>
                       </div>
-                      <div className="relative h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
                         <div
-                          className="absolute left-0 top-0 h-full bg-gradient-to-r from-finance to-yellow-500"
+                          className="absolute left-0 top-0 h-full bg-gradient-to-r from-green-600 to-yellow-500"
                           style={{ width: '78%' }}
                         />
                       </div>
-                      <div className="mt-2 text-xs text-gray-400">
+                      <div className="mt-2 text-sm text-gray-600">
                         Remaining: $220K of $1M annual
                       </div>
                     </div>
@@ -78,45 +82,41 @@ export const FinancePage = ({ activities, onToolCall }: FinancePageProps) => {
                   {/* Pending Approvals */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-white font-semibold text-sm">
+                      <h4 className="text-gray-900 font-semibold text-base">
                         Pending Approvals
                       </h4>
-                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                      <span className="bg-red-500 text-white text-sm px-3 py-1 rounded-full font-bold">
                         1
                       </span>
                     </div>
-                    <div className="bg-slate-800/50 rounded p-3">
-                      <div className="flex items-start justify-between mb-2">
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-start justify-between mb-3">
                         <div>
-                          <div className="text-white text-sm font-medium">Emergency Cloud Scaling</div>
-                          <div className="text-finance font-bold">$10,000</div>
+                          <div className="text-gray-900 font-medium">Emergency Cloud Scaling</div>
+                          <div className="text-green-600 font-bold text-lg mt-1">$10,000</div>
                         </div>
-                        <span className="text-xs text-gray-400">⚡ Urgent</span>
+                        <span className="text-sm text-orange-600 font-medium">⚡ Urgent</span>
                       </div>
-                      <div className="text-xs text-gray-400 mb-3">
+                      <div className="text-sm text-gray-600 mb-4">
                         Requested by: IT Operations
-                      </div>
-                      <div className="flex gap-2">
-                        <button className="flex-1 px-3 py-1.5 bg-finance hover:bg-green-600 text-white text-xs font-semibold rounded transition-colors">
-                          Approve
-                        </button>
-                        <button className="flex-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded transition-colors">
-                          Decline
-                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
-              )}
+                )}
+          </div>
 
-              {/* ChatKit Panel */}
-              <div className="flex-1 min-h-0">
-                <div className="h-full p-4">
-                  <ChatKitPanel role="FINANCE" onToolCall={onToolCall} />
-                </div>
-              </div>
+          {/* CENTER: ChatKit Panel */}
+          <div className="w-80 flex-shrink-0 overflow-hidden">
+            <div className="h-full rounded-xl border-4 border-gray-200 bg-white shadow-inner overflow-hidden">
+              <ChatKitPanel role="FINANCE" onToolCall={onToolCall} />
             </div>
-          </RolePanel>
+          </div>
+
+          {/* RIGHT: Activity Feed */}
+          <div className="w-80 flex-shrink-0 overflow-hidden">
+            <ActivityFeed activities={activities} />
+          </div>
         </div>
       </div>
     </PageLayout>

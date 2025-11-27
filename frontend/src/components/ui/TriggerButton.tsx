@@ -36,9 +36,9 @@ export const TriggerButton = ({ onTrigger, onReset }: TriggerButtonProps) => {
     return (
       <button
         onClick={handleReset}
-        className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white text-lg font-bold rounded-lg shadow-2xl transition-all transform hover:scale-105 animate-pulse-slow"
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white text-sm font-bold rounded-lg shadow-lg transition-all transform hover:scale-105 animate-pulse-slow"
       >
-        <RotateCcw size={24} />
+        <RotateCcw size={18} />
         Reset Demo
       </button>
     )
@@ -48,9 +48,9 @@ export const TriggerButton = ({ onTrigger, onReset }: TriggerButtonProps) => {
     <button
       onClick={handleTrigger}
       disabled={isTriggering}
-      className="flex items-center gap-3 px-8 py-4 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white text-lg font-semibold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+      className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white text-sm font-semibold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
     >
-      <AlertTriangle size={24} className={isTriggering ? 'animate-pulse' : ''} />
+      <AlertTriangle size={18} className={isTriggering ? 'animate-pulse' : ''} />
       {isTriggering ? 'Triggering Incident...' : '🚨 Trigger Production Incident'}
     </button>
   )

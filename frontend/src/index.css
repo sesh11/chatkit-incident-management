@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -13,35 +11,28 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #0f172a;
-  color: #f1f5f9;
+  background-color: #FFFFFF;
+  color: #1F2937;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar for white theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e293b;
+  background: #F3F4F6;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: #D1D5DB;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
-}
-
-/* Glassmorphism effect */
-.glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #9CA3AF;
 }
 
 /* Pulse animation for status dots */
@@ -58,19 +49,58 @@ body {
   animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Notification toast styles */
+/* Notification toast styles for white theme */
 .incident-toast {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: #1e293b;
-  border: 1px solid #f59e0b;
+  background: #FFFFFF;
+  border: 2px solid #F59E0B;
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
 .toast-icon {
   font-size: 24px;
   flex-shrink: 0;
+}
+
+/* Tailwind v4 Theme Configuration */
+@theme {
+  /* Custom colors */
+  --color-it: #1E40AF;
+  --color-it-dark: #1E3A8A;
+  --color-it-light: #3B82F6;
+
+  --color-ops: #6D28D9;
+  --color-ops-dark: #5B21B6;
+  --color-ops-light: #8B5CF6;
+
+  --color-finance: #047857;
+  --color-finance-dark: #065F46;
+  --color-finance-light: #10B981;
+
+  --color-csm: #C2410C;
+  --color-csm-dark: #9A3412;
+  --color-csm-light: #EA580C;
+
+  /* Custom animations */
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  /* Custom keyframes */
+  @keyframes slideDown {
+    0% { transform: translateY(-100%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    0% { transform: translateY(20px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
 }

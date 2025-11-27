@@ -28,28 +28,28 @@ export interface RolePanelProps {
 export const ROLE_CONFIG = {
   IT: {
     name: 'IT',
-    color: '#3B82F6',
+    color: '#1E40AF', // Darker blue for white background
     colorClass: 'it',
     icon: '🔧',
     userId: 'it-demo-001'
   },
   OPS: {
     name: 'Operations',
-    color: '#8B5CF6',
+    color: '#6D28D9', // Darker purple for white background
     colorClass: 'ops',
     icon: '📊',
     userId: 'ops-demo-001'
   },
   FINANCE: {
     name: 'Finance',
-    color: '#10B981',
+    color: '#047857', // Darker green for white background
     colorClass: 'finance',
     icon: '💰',
     userId: 'finance-demo-001'
   },
   CSM: {
     name: 'Customer Service',
-    color: '#F59E0B',
+    color: '#C2410C', // Darker orange for white background
     colorClass: 'csm',
     icon: '🎧',
     userId: 'csm-demo-001'
