@@ -713,6 +713,7 @@ async def create_incident(ctx: RunContextWrapper[IncidentUserContext], title: st
 
 IT_TOOLS = [
     view_technical_logs,
+    allocate_resources,
     restart_service,
     run_diagnostics,
     view_incident_details,
@@ -722,7 +723,6 @@ IT_TOOLS = [
 OPS_TOOLS = [
     set_incident_priority,
     view_business_impact,
-    allocate_resources,
     view_incident_details,
     view_affected_customers,
 ]

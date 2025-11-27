@@ -64,13 +64,6 @@ export const IncidentBanner = () => {
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <span className="text-gray-400 text-sm">Priority:</span>
-                <span className={`px-2 py-1 rounded text-white text-sm font-semibold ${priorityColors[incident.priority]}`}>
-                  {incident.priority}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
                 <span className="text-gray-400 text-sm">Status:</span>
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${statusColors[incident.status]} pulse-dot`} />

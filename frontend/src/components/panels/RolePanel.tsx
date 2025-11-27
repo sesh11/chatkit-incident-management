@@ -35,15 +35,6 @@ export const RolePanel = ({ role, children }: RolePanelProps) => {
             <h3 className="text-white font-semibold text-sm">{config.name}</h3>
           </div>
         </div>
-        <span
-          className="px-2 py-1 rounded text-xs font-bold"
-          style={{
-            backgroundColor: `${config.color}30`,
-            color: config.color,
-          }}
-        >
-          {role}
-        </span>
       </div>
 
       {/* Panel Content */}

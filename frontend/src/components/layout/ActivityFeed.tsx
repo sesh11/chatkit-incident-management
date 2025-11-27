@@ -38,13 +38,13 @@ export const ActivityFeed = ({ activities }: ActivityFeedProps) => {
   }
 
   return (
-    <div className="glass rounded-lg p-4 h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-700">
-        <h3 className="text-lg font-semibold text-white">Live Activity Feed</h3>
-        <span className="ml-auto text-sm text-gray-400">{activities.length} events</span>
+    <div className="bg-gray-50 rounded-xl p-4 h-full flex flex-col shadow-sm">
+      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-900">Live Activity Feed</h3>
+        <span className="ml-auto text-sm text-gray-600">{activities.length} events</span>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3">
         {activities.length === 0 ? (
           <div className="text-center text-gray-500 py-12">
             <p>No activity yet</p>
@@ -59,13 +59,13 @@ export const ActivityFeed = ({ activities }: ActivityFeedProps) => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3 }}
-                className="glass rounded-md p-3 hover:bg-slate-800/50 transition-colors"
+                className="bg-white rounded-lg p-4 shadow-md hover:shadow-lg transition-all border border-gray-100"
               >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl flex-shrink-0">{roleConfig.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm text-gray-400 font-mono">
+                      <span className="text-sm text-gray-600 font-mono">
                         {formatTime(activity.timestamp)}
                       </span>
                       <span
@@ -79,9 +79,9 @@ export const ActivityFeed = ({ activities }: ActivityFeedProps) => {
                       </span>
                       {getResultIcon(activity.result)}
                     </div>
-                    <p className="text-white text-sm font-medium">{activity.action}</p>
+                    <p className="text-gray-900 text-sm font-medium">{activity.action}</p>
                     {activity.details && (
-                      <p className="text-gray-400 text-xs mt-1 truncate">{activity.details}</p>
+                      <p className="text-gray-600 text-xs mt-1 truncate">{activity.details}</p>
                     )}
                   </div>
                 </div>
