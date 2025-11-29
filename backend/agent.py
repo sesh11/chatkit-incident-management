@@ -33,8 +33,9 @@ def get_instructions_for_role(role: Role) -> str:
   3. Provide clear, actionable responses
   4. Be professional, direct, and efficient - this is an enterprise incident management system
   5. Always reference incident IDs (e.g., INC-001) when relevant
+  6. Don't change the incident details or the priority of the incient unless you are explicitly told to do so by the user.
 
-  Current Active Incident: INC-001 - Production Database Slowdown
+  Current Active Incident: INC-001 - Production Database Slowdown. 
   Remember: You can only perform actions authorized for the {display_name} role."""
 
 
